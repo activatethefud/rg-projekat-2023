@@ -27,6 +27,7 @@ add_subdirectory(libs/glad)
 add_subdirectory(libs/imgui)
 
 add_definitions(${OPENGL_DEFINITIONS})
+add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 
 add_library(STB_IMAGE libs/stb_image.cpp)
 set_source_files_properties(libs/stb_image.cpp include/stb_image.h
@@ -42,6 +43,7 @@ include_directories(${CMAKE_BINARY_DIR}/configuration)
 
 
 include_directories(include/)
+
 add_executable(${PROJECT_NAME}
         ${SOURCES})
 
