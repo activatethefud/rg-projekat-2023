@@ -145,3 +145,4 @@ ipch/
 *.e2e
 
 project_base
+.cache
