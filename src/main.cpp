@@ -1,6 +1,8 @@
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/trigonometric.hpp>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -15,6 +17,7 @@
 #include <learnopengl/model.h>
 
 #include <iostream>
+#include <vector>
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 
@@ -56,8 +59,9 @@ struct ProgramState {
     bool ImGuiEnabled = false;
     Camera camera;
     bool CameraMouseMovementUpdateEnabled = true;
-    glm::vec3 backpackPosition = glm::vec3(0.0f);
-    float backpackScale = 1.0f;
+    glm::vec3 sunPosition = glm::vec3(0.0f);
+    float sunScale = 1.0f;
+    float sunMass = 1.0f;
     PointLight pointLight;
     ProgramState()
             : camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
@@ -98,10 +102,100 @@ void ProgramState::LoadFromFile(std::string filename) {
 }
 
 ProgramState *programState;
+glm::vec3 centerOfMass;
+
+class PlanetOrbit
+{
+public:
+    float a,b,e,startTheta;
+    PlanetOrbit(float a, float b)
+    : a(a), b(b) {
+        this->e = sqrt(a*a - b*b)/a;
+        startTheta = 1.0*random()/RAND_MAX * 10000;
+    }
+
+};
+
+class Planet
+{
+    PlanetOrbit orbit;
+    Model model;
+    string modelPath;
+    glm::vec3 position;
+    float scale;
+    float planetMass;
+
+public:
+
+    Planet(string const modelPath, float a, float b, float scale = 0.1, float mass = 0.01)
+        : modelPath(modelPath),
+          orbit(PlanetOrbit(a,b)),
+          position(glm::vec3(0,0,0)),
+          scale(scale),
+          planetMass(mass) {
+            this->model = Model(this->modelPath);
+          }
+
+    Planet(const Planet& o)
+        : modelPath(o.modelPath),
+          orbit(PlanetOrbit(o.orbit.a,o.orbit.b)),
+          position(o.position),
+          scale(o.scale),
+          planetMass(o.planetMass) {
+            this->model = Model(o.modelPath);
+          }
+
+    Model& getModel() { return model; }
+    const glm::vec3& getPosition() const { return position; }
+    float getMass() const { return planetMass; }
+
+    void Draw(Shader &shader)
+    {
+        float time = glfwGetTime();
+        glm::mat4 planetModelMat = glm::mat4(1.0f);
+
+        float theta = time + orbit.startTheta;
+        float r = sqrt(1/(pow((cos(theta)/orbit.a),2) + pow(sin(theta)/orbit.b,2) ));
+        float x = r*cos(theta);
+        float z = r*sin(theta);
+
+        shader.setFloat("scale", scale);
+        //planetModelMat = glm::scale(planetModelMat, glm::vec3(scale));
+        planetModelMat = glm::translate(planetModelMat, glm::vec3(x,0,z));
+        planetModelMat = glm::translate(planetModelMat, centerOfMass + glm::vec3(orbit.e*orbit.a,0,0));
+
+        planetModelMat = glm::rotate(planetModelMat, glm::degrees(6*sin(orbit.startTheta)), glm::vec3(0,1.0,0));
+
+        shader.setMat4("model", planetModelMat);
+
+        position = glm::vec3(
+            planetModelMat[3][0],
+            planetModelMat[3][1],
+            planetModelMat[3][2]
+        );
+
+        model.Draw(shader);
+    }
+
+    float getScale() const { return scale; }
+};
+
+void calculateCenterOfMass(const vector<Planet*> &planets)
+{
+    glm::vec3 res = programState->sunPosition * programState->sunMass;
+
+    for(int i=0;i<planets.size();++i) {
+        res += planets[i]->getPosition() * planets[i]->getMass();
+    }
+
+    centerOfMass = res;
+}
+
 
 void DrawImGui(ProgramState *programState);
 
 int main() {
+    srand(time(NULL));
     // glfw: initialize and configure
     // ------------------------------
     glfwInit();
@@ -140,7 +234,13 @@ int main() {
     stbi_set_flip_vertically_on_load(true);
 
     programState = new ProgramState;
-    programState->LoadFromFile("resources/program_state.txt");
+    //programState->LoadFromFile("resources/program_state.txt");
+    programState->ImGuiEnabled = false;
+
+    programState->camera.Position += glm::vec3(0,5,7);
+
+    bool firstLook = true;
+
     if (programState->ImGuiEnabled) {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
@@ -162,15 +262,25 @@ int main() {
     // build and compile shaders
     // -------------------------
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader sunShader("resources/shaders/sun_shader.vs","resources/shaders/sun_shader.fs");
 
     // load models
     // -----------
-    Model ourModel("resources/objects/backpack/backpack.obj");
-    ourModel.SetShaderTextureNamePrefix("material.");
+    Planet sunModel("resources/objects/sun/Sun.obj", 1, 1, 0.5, 1);
+    Planet earth("resources/objects/sun/Sun.obj", 50, 45, 0.2);
+    Planet mars("resources/objects/sun/Sun.obj", 50, 47, 0.2,0.5);
+    Planet venus("resources/objects/sun/Sun.obj", 40, 40, 0.2);
+    Planet neptune("resources/objects/sun/Sun.obj", 70, 40, 0.25);
+    //sunModel.SetShaderTextureNamePrefix("material.");
+
+    std::vector<Planet*> planets {
+        &earth, &mars, &venus, &neptune
+    };
 
     PointLight& pointLight = programState->pointLight;
-    pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
-    pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
+    pointLight.position = programState->sunPosition;
+    //pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
+    pointLight.ambient = glm::vec3(1, 1, 1);
     pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
     pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
 
@@ -182,6 +292,9 @@ int main() {
 
     // draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+
+    calculateCenterOfMass(planets);
 
     // render loop
     // -----------
@@ -204,8 +317,7 @@ int main() {
 
         // don't forget to enable shader before setting uniforms
         ourShader.use();
-        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
-        ourShader.setVec3("pointLight.position", pointLight.position);
+        ourShader.setVec3("pointLight.position", programState->sunPosition);
         ourShader.setVec3("pointLight.ambient", pointLight.ambient);
         ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
         ourShader.setVec3("pointLight.specular", pointLight.specular);
@@ -217,22 +329,45 @@ int main() {
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
+
+        if(firstLook){
+            glm::mat4 startAtSun = glm::lookAt(
+            programState->sunPosition - programState->camera.Position,
+            programState->camera.Position,
+            programState->camera.Up
+            );
+
+            firstLook = false;
+            ourShader.setMat4("view", startAtSun);
+        }
+        else {
+            glm::mat4 view = programState->camera.GetViewMatrix();
+            ourShader.setMat4("view", view);
+        }
+
+        sunShader.setMat4("view", programState->camera.GetViewMatrix());
+
         glm::mat4 view = programState->camera.GetViewMatrix();
         ourShader.setMat4("projection", projection);
-        ourShader.setMat4("view", view);
+        sunShader.setMat4("projection", projection);
 
         // render the loaded model
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model,
-                               programState->backpackPosition); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
+                               programState->sunPosition); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(0.3));    // it's a bit too big for our scene, so scale it down
+        sunShader.setMat4("model", model);
         ourShader.setMat4("model", model);
-        ourModel.Draw(ourShader);
+        sunModel.Draw(ourShader);
+
+        pointLight.position = sunModel.getPosition();
+
+        for(Planet *p : planets) {
+            p->Draw(ourShader);
+        }
 
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
-
-
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -312,8 +447,8 @@ void DrawImGui(ProgramState *programState) {
         ImGui::Text("Hello text");
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
-        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
+        ImGui::DragFloat3("sun position", (float*)&programState->sunScale);
+        ImGui::DragFloat("sun scale", &programState->sunScale, 0.05, 0.1, 4.0);
 
         ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
         ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
