@@ -30,8 +30,8 @@ void processInput(GLFWwindow *window);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 1200;
+const unsigned int SCR_HEIGHT = 800;
 
 // camera
 
@@ -234,10 +234,8 @@ int main() {
     stbi_set_flip_vertically_on_load(true);
 
     programState = new ProgramState;
-    //programState->LoadFromFile("resources/program_state.txt");
+    programState->LoadFromFile("resources/program_state.txt");
     programState->ImGuiEnabled = false;
-
-    programState->camera.Position += glm::vec3(0,5,7);
 
     bool firstLook = true;
 
@@ -267,15 +265,16 @@ int main() {
 
     // load models
     // -----------
-    Planet sunModel("resources/objects/sun/Sun.obj", 1, 1, 0.5, 1);
+    Planet sunModel("resources/objects/sun/Sun.obj", 0.5, 0.5, 0.5, 1);
     Planet earth("resources/objects/sun/Sun.obj", 50, 45, 0.1);
     Planet mars("resources/objects/sun/Sun.obj", 50, 47, 0.2,0.5);
     Planet venus("resources/objects/sun/Sun.obj", 40, 40, 0.1);
-    Planet neptune("resources/objects/sun/Sun.obj", 70, 40, 0.25);
+    Planet neptune("resources/objects/sun/Sun.obj", 70, 60, 0.25);
+    Planet jupiter("resources/objects/sun/Sun.obj", 60, 60, 0.25);
     //sunModel.SetShaderTextureNamePrefix("material.");
 
     std::vector<Planet*> planets {
-        &earth, &mars, &venus, &neptune
+        &earth, &mars, &venus, &jupiter, &neptune
     };
 
     PointLight& pointLight = programState->pointLight;
@@ -286,8 +285,8 @@ int main() {
     pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
 
     pointLight.constant = 1.0f;
-    pointLight.linear = 0.09f;
-    pointLight.quadratic = 0.032f;
+    pointLight.linear = 0.07f;
+    pointLight.quadratic = 0.017f;
 
 
 
@@ -331,25 +330,12 @@ int main() {
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
 
-        if(firstLook){
-            glm::mat4 startAtSun = glm::lookAt(
-            programState->sunPosition - programState->camera.Position,
-            programState->camera.Position,
-            programState->camera.Up
-            );
-
-            firstLook = false;
-            ourShader.setMat4("view", startAtSun);
-        }
-        else {
-            glm::mat4 view = programState->camera.GetViewMatrix();
-            ourShader.setMat4("view", view);
-        }
-
-        sunShader.setMat4("view", programState->camera.GetViewMatrix());
 
         glm::mat4 view = programState->camera.GetViewMatrix();
+        ourShader.setMat4("view", view);
         ourShader.setMat4("projection", projection);
+
+        sunShader.setMat4("view", programState->camera.GetViewMatrix());
         sunShader.setMat4("projection", projection);
 
         // render the loaded model
@@ -401,6 +387,12 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        programState->camera.ProcessKeyboard(UP, deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
+        programState->camera.ProcessKeyboard(DOWN, deltaTime);
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
