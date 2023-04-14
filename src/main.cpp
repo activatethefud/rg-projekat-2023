@@ -258,6 +258,7 @@ int main() {
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 
     // build and compile shaders
     // -------------------------
@@ -267,9 +268,9 @@ int main() {
     // load models
     // -----------
     Planet sunModel("resources/objects/sun/Sun.obj", 1, 1, 0.5, 1);
-    Planet earth("resources/objects/sun/Sun.obj", 50, 45, 0.2);
+    Planet earth("resources/objects/sun/Sun.obj", 50, 45, 0.1);
     Planet mars("resources/objects/sun/Sun.obj", 50, 47, 0.2,0.5);
-    Planet venus("resources/objects/sun/Sun.obj", 40, 40, 0.2);
+    Planet venus("resources/objects/sun/Sun.obj", 40, 40, 0.1);
     Planet neptune("resources/objects/sun/Sun.obj", 70, 40, 0.25);
     //sunModel.SetShaderTextureNamePrefix("material.");
 

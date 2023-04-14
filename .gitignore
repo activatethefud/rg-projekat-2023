@@ -146,3 +146,4 @@ ipch/
 
 project_base
 .cache
+resources/program_state.txt
