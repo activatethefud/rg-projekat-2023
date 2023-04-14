@@ -11,6 +11,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <Skybox.hpp>
+
 #include <learnopengl/filesystem.h>
 #include <learnopengl/shader.h>
 #include <learnopengl/camera.h>
@@ -296,6 +298,21 @@ int main() {
 
     calculateCenterOfMass(planets);
 
+    // Cubemap
+
+    vector<string> textureFaces {
+        "resources/skybox/blue/bkg1_left.png",
+        "resources/skybox/blue/bkg1_right.png",
+        "resources/skybox/blue/bkg1_top.png",
+        "resources/skybox/blue/bkg1_bot.png",
+        "resources/skybox/blue/bkg1_back.png",
+        "resources/skybox/blue/bkg1_front.png",
+    };
+
+    Skybox skybox;
+    skybox.Load(textureFaces);
+    Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
+
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window)) {
@@ -315,6 +332,10 @@ int main() {
         glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        //skybox
+
+        skybox.Draw(programState->camera, skyboxShader);
+
         // don't forget to enable shader before setting uniforms
         ourShader.use();
         ourShader.setVec3("pointLight.position", programState->sunPosition);
@@ -327,10 +348,10 @@ int main() {
         ourShader.setVec3("viewPosition", programState->camera.Position);
         ourShader.setFloat("material.shininess", 32.0f);
         // view/projection transformations
+
+
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
-
-
         glm::mat4 view = programState->camera.GetViewMatrix();
         ourShader.setMat4("view", view);
         ourShader.setMat4("projection", projection);
