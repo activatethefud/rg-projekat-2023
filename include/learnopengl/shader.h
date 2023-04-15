@@ -9,16 +9,22 @@
 #include <sstream>
 #include <iostream>
 #include <common.h>
+
+
 class Shader
 {
 public:
     unsigned int ID;
+    std::string vPath, fPath;
     // constructor generates the shader on the fly
     // ------------------------------------------------------------------------
     Shader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr)
     {
         std::string vertexPathString(vertexPath);
         std::string fragmentPathString(fragmentPath);
+
+        vPath = vertexPathString;
+        fPath = fragmentPathString;
 
         vertexPath = vertexPathString.c_str();
         fragmentPath= fragmentPathString.c_str();
@@ -182,6 +188,7 @@ private:
             {
                 glGetShaderInfoLog(shader, 1024, NULL, infoLog);
                 std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+                std::cout << vPath << std::endl << fPath << std::endl;
             }
         }
         else
@@ -191,6 +198,7 @@ private:
             {
                 glGetProgramInfoLog(shader, 1024, NULL, infoLog);
                 std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+                std::cout << vPath << std::endl << fPath << std::endl;
             }
         }
     }

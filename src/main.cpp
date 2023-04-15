@@ -1,4 +1,5 @@
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/fwd.hpp>
 #include <glm/trigonometric.hpp>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -11,8 +12,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <Skybox.hpp>
-
 #include <learnopengl/filesystem.h>
 #include <learnopengl/shader.h>
 #include <learnopengl/camera.h>
@@ -20,6 +19,9 @@
 
 #include <iostream>
 #include <vector>
+
+#include <Skybox.hpp>
+#include <Planet.hpp>
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 
@@ -32,8 +34,8 @@ void processInput(GLFWwindow *window);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
 // settings
-const unsigned int SCR_WIDTH = 1200;
-const unsigned int SCR_HEIGHT = 800;
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
 
 // camera
 
@@ -109,11 +111,17 @@ glm::vec3 centerOfMass;
 class PlanetOrbit
 {
 public:
-    float a,b,e,startTheta;
+    float a,b,e,startTheta,speed;
     PlanetOrbit(float a, float b)
     : a(a), b(b) {
-        this->e = sqrt(a*a - b*b)/a;
         startTheta = 1.0*random()/RAND_MAX * 10000;
+        speed = 1.0/2 + 1.0/2 * 1.0*random()/RAND_MAX;
+
+        //this->a *= 2;
+        //this->b *= 2;
+
+        //this->e = sqrt(this->a*this->a - this->b*this->b)/this->a;
+        this->e = sqrt(a*a-b*b)/a;
     }
 
 };
@@ -121,7 +129,7 @@ public:
 class Planet
 {
     PlanetOrbit orbit;
-    Model model;
+    PlanetModel model;
     string modelPath;
     glm::vec3 position;
     float scale;
@@ -134,20 +142,16 @@ public:
           orbit(PlanetOrbit(a,b)),
           position(glm::vec3(0,0,0)),
           scale(scale),
-          planetMass(mass) {
-            this->model = Model(this->modelPath);
-          }
+          planetMass(mass) {}
 
     Planet(const Planet& o)
         : modelPath(o.modelPath),
           orbit(PlanetOrbit(o.orbit.a,o.orbit.b)),
           position(o.position),
           scale(o.scale),
-          planetMass(o.planetMass) {
-            this->model = Model(o.modelPath);
-          }
+          planetMass(o.planetMass) {}
 
-    Model& getModel() { return model; }
+    PlanetModel& getModel() { return model; }
     const glm::vec3& getPosition() const { return position; }
     float getMass() const { return planetMass; }
 
@@ -155,8 +159,9 @@ public:
     {
         float time = glfwGetTime();
         glm::mat4 planetModelMat = glm::mat4(1.0f);
+        shader.use();
 
-        float theta = time + orbit.startTheta;
+        float theta = orbit.speed*time + orbit.startTheta;
         float r = sqrt(1/(pow((cos(theta)/orbit.a),2) + pow(sin(theta)/orbit.b,2) ));
         float x = r*cos(theta);
         float z = r*sin(theta);
@@ -176,7 +181,7 @@ public:
             planetModelMat[3][2]
         );
 
-        model.Draw(shader);
+        model.draw();
     }
 
     float getScale() const { return scale; }
@@ -191,6 +196,7 @@ void calculateCenterOfMass(const vector<Planet*> &planets)
     }
 
     centerOfMass = res;
+
 }
 
 
@@ -239,8 +245,6 @@ int main() {
     programState->LoadFromFile("resources/program_state.txt");
     programState->ImGuiEnabled = false;
 
-    bool firstLook = true;
-
     if (programState->ImGuiEnabled) {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
@@ -267,28 +271,28 @@ int main() {
 
     // load models
     // -----------
-    Planet sunModel("resources/objects/sun/Sun.obj", 0.5, 0.5, 0.5, 1);
-    Planet earth("resources/objects/sun/Sun.obj", 50, 45, 0.1);
-    Planet mars("resources/objects/sun/Sun.obj", 50, 47, 0.2,0.5);
-    Planet venus("resources/objects/sun/Sun.obj", 40, 40, 0.1);
-    Planet neptune("resources/objects/sun/Sun.obj", 70, 60, 0.25);
-    Planet jupiter("resources/objects/sun/Sun.obj", 60, 60, 0.25);
+    Planet sunModel("resources/objects/sun/Sun.obj", 1, 1, 0.3, 1);
+    Planet earth("resources/objects/sun/Sun.obj", 52, 50, 0.1);
+    Planet mars("resources/objects/sun/Sun.obj", 57, 55, 0.2,0.5);
+    Planet venus("resources/objects/sun/Sun.obj", 62, 60, 0.1);
+    Planet neptune("resources/objects/sun/Sun.obj", 72, 70, 0.15);
     //sunModel.SetShaderTextureNamePrefix("material.");
 
+
+
     std::vector<Planet*> planets {
-        &earth, &mars, &venus, &jupiter, &neptune
+        &earth, &mars, &venus, &neptune
     };
 
     PointLight& pointLight = programState->pointLight;
     pointLight.position = programState->sunPosition;
-    //pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
-    pointLight.ambient = glm::vec3(1, 1, 1);
-    pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
-    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
+    pointLight.ambient = glm::vec3(0.3);
+    pointLight.diffuse = glm::vec3(1);
+    pointLight.specular = glm::vec3(0);
 
     pointLight.constant = 1.0f;
-    pointLight.linear = 0.07f;
-    pointLight.quadratic = 0.017f;
+    pointLight.linear = 0.009f;
+    pointLight.quadratic = 0.0032f;
 
 
 
@@ -298,20 +302,18 @@ int main() {
 
     calculateCenterOfMass(planets);
 
-    // Cubemap
-
-    vector<string> textureFaces {
-        "resources/skybox/blue/bkg1_left.png",
+    vector<string> faces {
         "resources/skybox/blue/bkg1_right.png",
+        "resources/skybox/blue/bkg1_left.png",
         "resources/skybox/blue/bkg1_top.png",
         "resources/skybox/blue/bkg1_bot.png",
-        "resources/skybox/blue/bkg1_back.png",
         "resources/skybox/blue/bkg1_front.png",
+        "resources/skybox/blue/bkg1_back.png",
     };
-
     Skybox skybox;
-    skybox.Load(textureFaces);
-    Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
+    skybox.Load(faces);
+
+    Shader skyboxShader("resources/shaders/skybox.vs","resources/shaders/skybox.fs");
 
     // render loop
     // -----------
@@ -332,8 +334,7 @@ int main() {
         glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        //skybox
-
+        // Draw skybox
         skybox.Draw(programState->camera, skyboxShader);
 
         // don't forget to enable shader before setting uniforms
@@ -348,15 +349,11 @@ int main() {
         ourShader.setVec3("viewPosition", programState->camera.Position);
         ourShader.setFloat("material.shininess", 32.0f);
         // view/projection transformations
-
-
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
+
         glm::mat4 view = programState->camera.GetViewMatrix();
         ourShader.setMat4("view", view);
-        ourShader.setMat4("projection", projection);
-
-        sunShader.setMat4("view", programState->camera.GetViewMatrix());
         sunShader.setMat4("projection", projection);
 
         // render the loaded model
@@ -366,6 +363,7 @@ int main() {
         model = glm::scale(model, glm::vec3(0.3));    // it's a bit too big for our scene, so scale it down
         sunShader.setMat4("model", model);
         ourShader.setMat4("model", model);
+
         sunModel.Draw(ourShader);
 
         pointLight.position = sunModel.getPosition();
@@ -408,12 +406,6 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-        programState->camera.ProcessKeyboard(UP, deltaTime);
-    }
-    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
-        programState->camera.ProcessKeyboard(DOWN, deltaTime);
-    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
