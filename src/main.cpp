@@ -283,6 +283,9 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     // build and compile shaders
     // -------------------------
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
@@ -295,7 +298,7 @@ int main() {
     Planet earth("resources/textures/earth.jpg", 52, 50, 0.1);
     Planet mars("resources/textures/mars.jpg", 57, 55, 0.2,0.5);
     Planet venus("resources/textures/venus.jpg", 62, 60, 0.1);
-    Planet jupiter("resources/textures/jupiter.jpg", 72, 70, 0.15);
+    Planet jupiter("resources/textures/jupiter_tp.jpg", 72, 70, 0.15);
     //sunModel.SetShaderTextureNamePrefix("material.");
 
     // Load backpack
