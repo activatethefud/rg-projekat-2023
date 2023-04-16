@@ -61,7 +61,7 @@ struct PointLight {
 
 struct ProgramState {
     glm::vec3 clearColor = glm::vec3(0);
-    bool ImGuiEnabled = false;
+    bool ImGuiEnabled = true;
     Camera camera;
     bool CameraMouseMovementUpdateEnabled = true;
     glm::vec3 sunPosition = glm::vec3(0.0f);
@@ -282,6 +282,7 @@ int main() {
     // -------------------------
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader sunShader("resources/shaders/2.model_lighting.vs","resources/shaders/sun_shader.fs");
+    Shader backpackShader("resources/shaders/backpack_shader.vs","resources/shaders/backpack_shader.fs");
 
     // load models
     // -----------
@@ -292,6 +293,9 @@ int main() {
     Planet jupiter("resources/textures/jupiter.jpg", 72, 70, 0.15);
     //sunModel.SetShaderTextureNamePrefix("material.");
 
+    // Load backpack
+    Model backpackModel("resources/objects/backpack/backpack.obj");
+    backpackModel.SetShaderTextureNamePrefix("material.");
 
 
     std::vector<Planet*> planets {
@@ -386,6 +390,34 @@ int main() {
 
         for(Planet *p : planets) {
             p->Draw(ourShader);
+        }
+
+        // Draw backpack
+        {
+            backpackShader.use();
+            backpackShader.setVec3("pointLight.position", pointLight.position);
+            backpackShader.setVec3("pointLight.ambient", pointLight.ambient);
+            backpackShader.setVec3("pointLight.diffuse", pointLight.diffuse);
+            backpackShader.setVec3("pointLight.specular", pointLight.specular);
+            backpackShader.setFloat("pointLight.constant", pointLight.constant);
+            backpackShader.setFloat("pointLight.linear", pointLight.linear);
+            backpackShader.setFloat("pointLight.quadratic", pointLight.quadratic);
+            backpackShader.setVec3("viewPosition", programState->camera.Position);
+            backpackShader.setFloat("material.shininess", 32.0f);
+
+            glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
+                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
+            glm::mat4 view = programState->camera.GetViewMatrix();
+
+            glm::mat4 model = glm::mat4(1);
+            model = glm::translate(model, glm::vec3(0,5,0));
+
+            backpackShader.setMat4("projection", projection);
+            backpackShader.setMat4("view", view);
+            backpackShader.setMat4("model", model);
+
+            backpackModel.Draw(backpackShader);
+
         }
 
         if (programState->ImGuiEnabled)

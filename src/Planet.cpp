@@ -50,21 +50,21 @@ void PlanetModel::generateVertexData()
                 topRight = topLeft + 1;
                 bottomRight = bottomLeft + 1;
 
-                //indices.push_back(bottomLeft);
-                //indices.push_back(topLeft);
-                //indices.push_back(bottomRight);
-
-                //indices.push_back(topLeft);
-                //indices.push_back(topRight);
-                //indices.push_back(bottomRight);
-
-                indices.push_back(topLeft);
                 indices.push_back(bottomLeft);
+                indices.push_back(topLeft);
                 indices.push_back(bottomRight);
 
-                indices.push_back(bottomRight);
-                indices.push_back(topRight);
                 indices.push_back(topLeft);
+                indices.push_back(topRight);
+                indices.push_back(bottomRight);
+
+                //indices.push_back(topLeft);
+                //indices.push_back(bottomLeft);
+                //indices.push_back(bottomRight);
+
+                //indices.push_back(bottomRight);
+                //indices.push_back(topRight);
+                //indices.push_back(topLeft);
 
                 data.push_back(x);
                 data.push_back(y);
@@ -144,7 +144,8 @@ void PlanetModel::setupBuffers()
 
 void PlanetModel::draw()
 {
-    glDisable(GL_CULL_FACE);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
     GL_ERROR_CHECK(glBindVertexArray(VAO));
 
     if(hasTexture()) {
@@ -152,5 +153,6 @@ void PlanetModel::draw()
     }
     
     GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, &indices[0]));
-    glEnable(GL_CULL_FACE);
+
+    glDisable(GL_CULL_FACE);
 }
