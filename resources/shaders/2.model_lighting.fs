@@ -23,8 +23,11 @@ in vec2 TexCoords;
 in vec3 Normal;
 in vec3 FragPos;
 
+uniform int HasTexture;
 uniform PointLight pointLight;
 uniform Material material;
+
+uniform sampler2D textureSampler;
 
 uniform vec3 viewPosition;
 // calculates the color when using a point light.
@@ -59,5 +62,13 @@ void main()
     vec3 normal = normalize(Normal);
     vec3 viewDir = normalize(viewPosition - FragPos);
     vec3 result = CalcPointLight(pointLight, normal, FragPos, viewDir);
-    FragColor = vec4(result, 1.0);
+    
+    if(HasTexture == 1) {
+        FragColor = vec4(result, 1.0) * texture(textureSampler, TexCoords);
+    }
+    else {
+        FragColor = vec4(result, 1.0);
+    }
+
+
 }

@@ -1,3 +1,4 @@
+#include "learnopengl/mesh.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 #include <glm/trigonometric.hpp>
@@ -34,8 +35,8 @@ void processInput(GLFWwindow *window);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 1200;
+const unsigned int SCR_HEIGHT = 800;
 
 // camera
 
@@ -130,22 +131,23 @@ class Planet
 {
     PlanetOrbit orbit;
     PlanetModel model;
-    string modelPath;
+    string texturePath;
     glm::vec3 position;
     float scale;
     float planetMass;
 
 public:
 
-    Planet(string const modelPath, float a, float b, float scale = 0.1, float mass = 0.01)
-        : modelPath(modelPath),
+    Planet(string const texturePath, float a, float b, float scale = 0.1, float mass = 0.01)
+        : texturePath(texturePath),
+          model(texturePath),
           orbit(PlanetOrbit(a,b)),
           position(glm::vec3(0,0,0)),
           scale(scale),
           planetMass(mass) {}
 
     Planet(const Planet& o)
-        : modelPath(o.modelPath),
+        : texturePath(texturePath),
           orbit(PlanetOrbit(o.orbit.a,o.orbit.b)),
           position(o.position),
           scale(o.scale),
@@ -174,6 +176,17 @@ public:
         planetModelMat = glm::rotate(planetModelMat, glm::degrees(6*sin(orbit.startTheta)), glm::vec3(0,1.0,0));
 
         shader.setMat4("model", planetModelMat);
+
+        glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
+                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
+
+        shader.setInt("HasTexture", (int)model.hasTexture());
+        glm::mat4 view = programState->camera.GetViewMatrix();
+        shader.setMat4("view", view);
+        shader.setMat4("projection", projection);
+
+        glm::mat3 normalMatrix = glm::mat3(glm::transpose(glm::inverse(view*planetModelMat)));
+        shader.setMat3("normalMatrix", normalMatrix);
 
         position = glm::vec3(
             planetModelMat[3][0],
@@ -267,32 +280,32 @@ int main() {
     // build and compile shaders
     // -------------------------
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
-    Shader sunShader("resources/shaders/sun_shader.vs","resources/shaders/sun_shader.fs");
+    Shader sunShader("resources/shaders/2.model_lighting.vs","resources/shaders/sun_shader.fs");
 
     // load models
     // -----------
-    Planet sunModel("resources/objects/sun/Sun.obj", 1, 1, 0.3, 1);
-    Planet earth("resources/objects/sun/Sun.obj", 52, 50, 0.1);
-    Planet mars("resources/objects/sun/Sun.obj", 57, 55, 0.2,0.5);
-    Planet venus("resources/objects/sun/Sun.obj", 62, 60, 0.1);
-    Planet neptune("resources/objects/sun/Sun.obj", 72, 70, 0.15);
+    Planet sunModel("resources/textures/sun.jpg", 1, 1, 0.3, 1);
+    Planet earth("resources/textures/earth.jpg", 52, 50, 0.1);
+    Planet mars("resources/textures/mars.jpg", 57, 55, 0.2,0.5);
+    Planet venus("resources/textures/venus.jpg", 62, 60, 0.1);
+    Planet jupiter("resources/textures/jupiter.jpg", 72, 70, 0.15);
     //sunModel.SetShaderTextureNamePrefix("material.");
 
 
 
     std::vector<Planet*> planets {
-        &earth, &mars, &venus, &neptune
+        &earth, &mars, &venus, &jupiter
     };
 
     PointLight& pointLight = programState->pointLight;
     pointLight.position = programState->sunPosition;
-    pointLight.ambient = glm::vec3(0.3);
+    pointLight.ambient = glm::vec3(0.1);
     pointLight.diffuse = glm::vec3(1);
     pointLight.specular = glm::vec3(0);
 
     pointLight.constant = 1.0f;
-    pointLight.linear = 0.009f;
-    pointLight.quadratic = 0.0032f;
+    pointLight.linear = 0.0009f;
+    pointLight.quadratic = 0.00032f;
 
 
 
@@ -336,10 +349,13 @@ int main() {
 
         // Draw skybox
         skybox.Draw(programState->camera, skyboxShader);
+        
+        programState->sunPosition = sunModel.getPosition();
+        pointLight.position = programState->sunPosition;
 
         // don't forget to enable shader before setting uniforms
         ourShader.use();
-        ourShader.setVec3("pointLight.position", programState->sunPosition);
+        ourShader.setVec3("pointLight.position", pointLight.position);
         ourShader.setVec3("pointLight.ambient", pointLight.ambient);
         ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
         ourShader.setVec3("pointLight.specular", pointLight.specular);
@@ -349,24 +365,23 @@ int main() {
         ourShader.setVec3("viewPosition", programState->camera.Position);
         ourShader.setFloat("material.shininess", 32.0f);
         // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
-                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
 
-        glm::mat4 view = programState->camera.GetViewMatrix();
-        ourShader.setMat4("view", view);
-        sunShader.setMat4("projection", projection);
 
-        // render the loaded model
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model,
-                               programState->sunPosition); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.3));    // it's a bit too big for our scene, so scale it down
-        sunShader.setMat4("model", model);
-        ourShader.setMat4("model", model);
+        /*
+        printf("Sun x y z: %.2f %.2f %.2f\n", 
+            programState->sunPosition.x,
+            programState->sunPosition.y,
+            programState->sunPosition.z
+        );
 
-        sunModel.Draw(ourShader);
+        printf("Light position x y z: %.2f %.2f %.2f\n",
+            pointLight.position.x,
+            pointLight.position.y,
+            pointLight.position.z
+        );
+        */
 
-        pointLight.position = sunModel.getPosition();
+        sunModel.Draw(sunShader);
 
         for(Planet *p : planets) {
             p->Draw(ourShader);
@@ -406,6 +421,10 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+        programState->camera.ProcessKeyboard(DOWN, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+        programState->camera.ProcessKeyboard(UP, deltaTime);
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

@@ -7,6 +7,7 @@ out vec2 TexCoords;
 out vec3 Normal;
 out vec3 FragPos;
 
+uniform mat3 normalMatrix;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
@@ -16,7 +17,7 @@ uniform float scale;
 void main()
 {
     FragPos = scale*vec3(model * vec4(aPos, 1.0));
-    Normal = aNormal;
+    Normal = normalMatrix * aNormal;
     TexCoords = aTexCoords;
     gl_Position = projection * view * vec4(FragPos, 1.0);
 }
