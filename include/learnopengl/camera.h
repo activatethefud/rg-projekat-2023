@@ -14,7 +14,8 @@ enum Camera_Movement {
     LEFT,
     RIGHT,
     UP,
-    DOWN
+    DOWN,
+    CAMERA_LOCK_UNLOCK
 };
 
 // Default camera values

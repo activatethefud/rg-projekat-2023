@@ -9,6 +9,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <cmath>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -37,6 +39,10 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 // settings
 const unsigned int SCR_WIDTH = 1200;
 const unsigned int SCR_HEIGHT = 800;
+
+float orbitModifier = 1.0f;
+float sunScaleModifier = 0;
+float orbitScaleModifier = 1;
 
 // camera
 
@@ -135,15 +141,17 @@ class Planet
     glm::vec3 position;
     float scale;
     float planetMass;
+    bool sunPlanet;
 
 public:
 
-    Planet(string const texturePath, float a, float b, float scale = 0.1, float mass = 0.01)
+    Planet(string const texturePath, float a, float b, float scale = 0.1, float mass = 0.01, bool sunPlanet = false)
         : texturePath(texturePath),
           model(texturePath),
           orbit(PlanetOrbit(a,b)),
           position(glm::vec3(0,0,0)),
           scale(scale),
+          sunPlanet(sunPlanet),
           planetMass(mass) {}
 
     Planet(const Planet& o)
@@ -164,13 +172,13 @@ public:
         shader.use();
 
         float theta = orbit.speed*time + orbit.startTheta;
-        float r = sqrt(1/(pow((cos(theta)/orbit.a),2) + pow(sin(theta)/orbit.b,2) ));
+        float r = sqrt(1/(pow((cos(theta)/(orbit.a*orbitScaleModifier)),2) + pow(sin(theta)/(orbit.b*orbitModifier),2) ));
         float x = r*cos(theta);
         float z = r*sin(theta);
 
         // Revolution
         planetModelMat = glm::translate(planetModelMat, glm::vec3(x,0,z));
-        planetModelMat = glm::translate(planetModelMat, centerOfMass + glm::vec3(orbit.e*orbit.a,0,0));
+        planetModelMat = glm::translate(planetModelMat, centerOfMass + glm::vec3(orbit.e*orbit.a*orbitModifier,0,0));
 
         planetModelMat = glm::rotate(planetModelMat, glm::degrees(0.01f*time), glm::vec3(0,1.0,0));
         planetModelMat = glm::rotate(planetModelMat, glm::degrees(6*sin(orbit.startTheta)), glm::vec3(0,1.0,0));
@@ -181,7 +189,7 @@ public:
 
 
         shader.setMat4("model", planetModelMat);
-        shader.setFloat("scale", scale);
+        shader.setFloat("scale", scale + sunScaleModifier*sunPlanet);
         shader.setInt("HasTexture", (int)model.hasTexture());
         shader.setMat4("view", view);
         shader.setMat4("projection", projection);
@@ -257,11 +265,8 @@ int main() {
 
     programState = new ProgramState;
     programState->LoadFromFile("resources/program_state.txt");
-    programState->ImGuiEnabled = false;
+    programState->ImGuiEnabled = true;
 
-    if (programState->ImGuiEnabled) {
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    }
     // Init Imgui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -286,7 +291,7 @@ int main() {
 
     // load models
     // -----------
-    Planet sunModel("resources/textures/sun.jpg", 1, 1, 0.3, 1);
+    Planet sunModel("resources/textures/sun.jpg", 1, 1, 0.3, 1, true);
     Planet earth("resources/textures/earth.jpg", 52, 50, 0.1);
     Planet mars("resources/textures/mars.jpg", 57, 55, 0.2,0.5);
     Planet venus("resources/textures/venus.jpg", 62, 60, 0.1);
@@ -306,7 +311,7 @@ int main() {
     pointLight.position = programState->sunPosition;
     pointLight.ambient = glm::vec3(0.2);
     pointLight.diffuse = glm::vec3(1);
-    pointLight.specular = glm::vec3(0);
+    pointLight.specular = glm::vec3(0.2);
 
     pointLight.constant = 1.0f;
     pointLight.linear = 0.0009f;
@@ -443,6 +448,13 @@ int main() {
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window) {
+
+    static const float _cooldown = 1.0f;
+    static float _lastPressed = 0;
+    static float _deltaTime = 0;
+
+    _deltaTime = glfwGetTime() - _lastPressed;
+
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
@@ -458,6 +470,17 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(DOWN, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(UP, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS && _deltaTime > _cooldown)  {
+        if(programState->CameraMouseMovementUpdateEnabled) {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            programState->CameraMouseMovementUpdateEnabled = false;
+        }
+        else {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            programState->CameraMouseMovementUpdateEnabled = true;
+        }
+        _lastPressed = glfwGetTime();
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -501,26 +524,20 @@ void DrawImGui(ProgramState *programState) {
 
     {
         static float f = 0.0f;
-        ImGui::Begin("Hello window");
-        ImGui::Text("Hello text");
-        ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
+        ImGui::Begin("Properties");
+        ImGui::SliderFloat("Sunscale modifier", &sunScaleModifier, 0, 1.0);
+        ImGui::SliderFloat("Orbit modifier", &orbitScaleModifier, 1, 3.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("sun position", (float*)&programState->sunScale);
-        ImGui::DragFloat("sun scale", &programState->sunScale, 0.05, 0.1, 4.0);
-
-        ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
         ImGui::End();
     }
 
     {
-        ImGui::Begin("Camera info");
+        ImGui::Begin("Camera info - PRESS C TO FREEZE CAMERA");
         const Camera& c = programState->camera;
         ImGui::Text("Camera position: (%f, %f, %f)", c.Position.x, c.Position.y, c.Position.z);
         ImGui::Text("(Yaw, Pitch): (%f, %f)", c.Yaw, c.Pitch);
         ImGui::Text("Camera front: (%f, %f, %f)", c.Front.x, c.Front.y, c.Front.z);
-        ImGui::Checkbox("Camera mouse update", &programState->CameraMouseMovementUpdateEnabled);
+        ImGui::Text("Camera locked: %d", programState->CameraMouseMovementUpdateEnabled);
         ImGui::End();
     }
 
