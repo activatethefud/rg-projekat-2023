@@ -168,20 +168,21 @@ public:
         float x = r*cos(theta);
         float z = r*sin(theta);
 
-        shader.setFloat("scale", scale);
-        //planetModelMat = glm::scale(planetModelMat, glm::vec3(scale));
+        // Revolution
         planetModelMat = glm::translate(planetModelMat, glm::vec3(x,0,z));
         planetModelMat = glm::translate(planetModelMat, centerOfMass + glm::vec3(orbit.e*orbit.a,0,0));
 
+        planetModelMat = glm::rotate(planetModelMat, glm::degrees(0.01f*time), glm::vec3(0,1.0,0));
         planetModelMat = glm::rotate(planetModelMat, glm::degrees(6*sin(orbit.startTheta)), glm::vec3(0,1.0,0));
-
-        shader.setMat4("model", planetModelMat);
 
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
-
-        shader.setInt("HasTexture", (int)model.hasTexture());
         glm::mat4 view = programState->camera.GetViewMatrix();
+
+
+        shader.setMat4("model", planetModelMat);
+        shader.setFloat("scale", scale);
+        shader.setInt("HasTexture", (int)model.hasTexture());
         shader.setMat4("view", view);
         shader.setMat4("projection", projection);
 
@@ -299,7 +300,7 @@ int main() {
 
     PointLight& pointLight = programState->pointLight;
     pointLight.position = programState->sunPosition;
-    pointLight.ambient = glm::vec3(0.1);
+    pointLight.ambient = glm::vec3(0.2);
     pointLight.diffuse = glm::vec3(1);
     pointLight.specular = glm::vec3(0);
 
