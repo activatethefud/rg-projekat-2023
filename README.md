@@ -4,4 +4,6 @@
 
 [Link ka demo snimku](https://youtu.be/VHCEeZ8g3Mc)
 
+Iz grupe A uradjen skybox.
+
 ![Demo](demo.gif)
